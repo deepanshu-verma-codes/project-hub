@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply text-gray-900 bg-[#f9fafb];
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+}
+
+@layer components {
+  .asana-card {
+    @apply bg-white p-3 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing;
+  }
+  
+  .asana-column {
+    @apply flex-shrink-0 w-[300px] bg-transparent flex flex-col;
+  }
+
+  .asana-sidebar-item {
+    @apply flex items-center px-4 py-2 text-sm font-medium rounded-r-full transition-colors cursor-pointer;
+  }
+
+  .asana-sidebar-item.active {
+    @apply bg-[#454545] text-white;
+  }
+
+  .asana-sidebar-item.inactive {
+    @apply text-gray-400 hover:bg-[#333333] hover:text-gray-200;
+  }
+}
+
+/* Custom scrollbar for a cleaner look */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #d1d5db;
+}

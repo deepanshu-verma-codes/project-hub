@@ -1,0 +1,69 @@
+name: Production Deployment Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate-and-build:
+    name: Lint, Test, and Build
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      # Backend Checks
+      - name: Install Backend Dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Lint Backend
+        working-directory: ./backend
+        run: npm run lint --if-present
+
+      - name: Run Backend Tests
+        working-directory: ./backend
+        run: npm test --if-present
+
+      # Frontend Checks
+      - name: Install Frontend Dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build Frontend
+        working-directory: ./frontend
+        run: npm run build
+
+  deploy:
+    name: Deploy to Production
+    needs: validate-and-build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Execute Deployment Script via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.PROD_SERVER_IP }}
+          username: ${{ secrets.PROD_SERVER_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            cd /var/www/project-hub
+            git pull origin main
+            npm ci --prefix backend
+            npm ci --prefix frontend
+            npm run build --prefix frontend
+            pm2 restart ecosystem.config.js
+            sudo systemctl reload nginx
