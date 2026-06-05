@@ -18,6 +18,12 @@ const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
+    // Explicit Input Validation
+    if (!email || !password) {
+      res.status(400);
+      throw new Error('Please provide both email and password');
+    }
+
     // Find user by email
     const user = await User.findOne({ email });
 
@@ -31,8 +37,10 @@ const loginUser = async (req, res, next) => {
         token: generateToken(user._id),
       });
     } else {
-      res.status(401);
-      throw new Error('Invalid email or password');
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password'
+      });
     }
   } catch (error) {
     next(error);

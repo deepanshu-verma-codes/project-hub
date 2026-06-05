@@ -1,26 +1,65 @@
 import React, { useState, useEffect } from 'react';
 import { useBoardStore } from '../store/useBoardStore';
+import { useSocket } from '../hooks/useSocket';
 import ProjectModal from './ProjectModal';
+import { HiOutlineChartPie, HiOutlineBell, HiPlus, HiPencilAlt, HiTrash, HiLogout } from 'react-icons/hi';
 
 const Sidebar = ({ activeView, onViewChange }) => {
-  const { projects, activeProject, fetchProjects, setActiveProject, createProject } = useBoardStore();
+  const { 
+    projects, 
+    activeProject, 
+    fetchProjects, 
+    setActiveProject, 
+    createProject, 
+    deleteProject, 
+    updateProject, 
+    addNotification,
+    fetchNotifications
+  } = useBoardStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, projectId: null, projectName: '' });
+  const [logoutConfirm, setLogoutConfirm] = useState(false);
+  const [user, setUser] = useState(null);
+
+  // Initialize global socket for project-level real-time updates
+  useSocket();
 
   useEffect(() => {
     fetchProjects();
+    fetchNotifications();
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
   }, []);
 
   const handleCreateProject = async (projectData) => {
-    await createProject(projectData);
+    if (editingProject) {
+      await updateProject(editingProject._id, projectData);
+      addNotification('Project updated successfully!', 'success');
+    } else {
+      await createProject(projectData);
+    }
     setIsModalOpen(false);
+    setEditingProject(null);
     onViewChange('board');
   };
 
-  const handleLogout = () => {
-    if (confirm('Are you sure you want to logout?')) {
-      localStorage.removeItem('token');
-      window.location.reload();
+  const handleDeleteProject = async () => {
+    if (deleteConfirm.projectId) {
+      await deleteProject(deleteConfirm.projectId);
+      setDeleteConfirm({ isOpen: false, projectId: null, projectName: '' });
+      if (activeView === 'board' && activeProject?._id === deleteConfirm.projectId) {
+        onViewChange('dashboard');
+      }
     }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.reload();
   };
 
   return (
@@ -42,18 +81,29 @@ const Sidebar = ({ activeView, onViewChange }) => {
               onViewChange('dashboard');
               setActiveProject(null);
             }}
-            className={`asana-sidebar-item ml-2 mb-1 ${activeView === 'dashboard' ? 'active' : 'inactive'}`}
+            className={`asana-sidebar-item ml-2 mb-1 group/nav ${activeView === 'dashboard' ? 'active' : 'inactive'}`}
           >
-            <span className="mr-3 text-lg">📊</span> <span className="text-sm">Dashboard</span>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors ${
+              activeView === 'dashboard' ? 'bg-blue-600 text-white' : 'bg-[#3d3d3d] text-gray-400 group-hover/nav:text-white'
+            }`}>
+              <HiOutlineChartPie className="text-lg" />
+            </div>
+            <span className="text-sm">Dashboard</span>
           </div>
           <div 
             onClick={() => {
               onViewChange('notifications');
               setActiveProject(null);
+              fetchNotifications();
             }}
-            className={`asana-sidebar-item ml-2 mb-8 ${activeView === 'notifications' ? 'active' : 'inactive'}`}
+            className={`asana-sidebar-item ml-2 mb-8 group/nav ${activeView === 'notifications' ? 'active' : 'inactive'}`}
           >
-            <span className="mr-3 text-lg">🔔</span> <span className="text-sm">Notifications</span>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors ${
+              activeView === 'notifications' ? 'bg-blue-600 text-white' : 'bg-[#3d3d3d] text-gray-400 group-hover/nav:text-white'
+            }`}>
+              <HiOutlineBell className="text-lg" />
+            </div>
+            <span className="text-sm">Notifications</span>
           </div>
 
           {/* Projects Section */}
@@ -62,36 +112,64 @@ const Sidebar = ({ activeView, onViewChange }) => {
             <button 
               onClick={(e) => {
                 e.stopPropagation();
+                setEditingProject(null);
                 setIsModalOpen(true);
               }}
               className="text-gray-500 hover:text-white transition-all transform hover:scale-110 p-1"
               title="Add Project"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-              </svg>
+              <HiPlus className="text-base" />
             </button>
           </div>
 
           <div className="space-y-0.5 px-2">
             {projects.length > 0 ? (
-              projects.map((project) => (
-                <div
-                  key={project._id}
-                  onClick={() => {
-                    setActiveProject(project);
-                    onViewChange('board');
-                  }}
-                  className={`asana-sidebar-item !rounded-md ${
-                    activeProject?._id === project._id && activeView === 'board'
-                      ? 'active !bg-blue-600/20 !text-blue-400 !border-l-4 !border-blue-500' 
-                      : 'inactive'
-                  }`}
-                >
-                  <span className={`w-2 h-2 rounded-full mr-3 ${activeProject?._id === project._id && activeView === 'board' ? 'bg-blue-400' : 'bg-gray-600'}`}></span>
-                  <span className="truncate text-sm font-medium">{project.name}</span>
-                </div>
-              ))
+              projects.map((project) => {
+                const canManage = user && (user.role === 'Admin' || project.ownerId === user.id);
+                return (
+                  <div
+                    key={project._id}
+                    onClick={() => {
+                      setActiveProject(project);
+                      onViewChange('board');
+                    }}
+                    className={`asana-sidebar-item !rounded-md group/item relative ${
+                      activeProject?._id === project._id && activeView === 'board'
+                        ? 'active !bg-blue-600/20 !text-blue-400 !border-l-4 !border-blue-500' 
+                        : 'inactive'
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full mr-3 ${activeProject?._id === project._id && activeView === 'board' ? 'bg-blue-400' : 'bg-gray-600'}`}></span>
+                    <span className="truncate text-sm font-medium flex-1">{project.name}</span>
+                    
+                    {canManage && (
+                      <div className="flex space-x-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingProject(project);
+                            setIsModalOpen(true);
+                          }}
+                          className="p-1 hover:text-blue-400 transition-colors"
+                          title="Edit Project"
+                        >
+                          <HiPencilAlt className="text-sm" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteConfirm({ isOpen: true, projectId: project._id, projectName: project.name });
+                          }}
+                          className="p-1 hover:text-red-400 transition-colors"
+                          title="Delete Project"
+                        >
+                          <HiTrash className="text-sm" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             ) : (
               <div className="px-4 py-2 text-xs text-gray-500 italic">No projects yet</div>
             )}
@@ -107,13 +185,11 @@ const Sidebar = ({ activeView, onViewChange }) => {
               <p className="text-[10px] text-gray-500 font-medium">Free Workspace</p>
             </div>
             <button 
-              onClick={handleLogout}
+              onClick={() => setLogoutConfirm(true)}
               className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-[#3d3d3d] rounded-md text-gray-400 hover:text-red-400 transition-all"
               title="Logout"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
+              <HiLogout className="text-lg" />
             </button>
           </div>
         </div>
@@ -121,9 +197,75 @@ const Sidebar = ({ activeView, onViewChange }) => {
 
       <ProjectModal 
         isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSave={handleCreateProject} 
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingProject(null);
+        }} 
+        onSave={handleCreateProject}
+        project={editingProject}
       />
+
+      {/* Logout Confirmation Modal */}
+      {logoutConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-[#1e1e1e] w-full max-w-sm rounded-2xl shadow-2xl border border-[#333] overflow-hidden transform animate-in zoom-in-95 duration-200">
+            <div className="p-8">
+              <div className="w-12 h-12 bg-orange-500/10 rounded-full flex items-center justify-center mb-6 mx-auto">
+                <HiLogout className="text-2xl text-orange-500" />
+              </div>
+              <h3 className="text-xl font-bold text-white text-center mb-2">Logout?</h3>
+              <p className="text-gray-400 text-center text-sm leading-relaxed">
+                Are you sure you want to sign out of your account?
+              </p>
+            </div>
+            <div className="bg-[#252525] px-8 py-6 flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => setLogoutConfirm(false)}
+                className="flex-1 px-6 py-2.5 rounded-xl text-sm font-bold text-gray-300 hover:bg-[#333] transition-colors border border-[#444]"
+              >
+                Stay
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex-1 px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-orange-600 hover:bg-orange-700 transition-colors shadow-lg shadow-orange-900/20"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {deleteConfirm.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-[#1e1e1e] w-full max-w-md rounded-2xl shadow-2xl border border-[#333] overflow-hidden transform animate-in zoom-in-95 duration-200">
+            <div className="p-8">
+              <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center mb-6 mx-auto">
+                <HiTrash className="text-2xl text-red-500" />
+              </div>
+              <h3 className="text-xl font-bold text-white text-center mb-2">Delete Project?</h3>
+              <p className="text-gray-400 text-center text-sm leading-relaxed">
+                Are you sure you want to delete <span className="text-white font-semibold">"{deleteConfirm.projectName}"</span>? This action cannot be undone and all associated tasks will be permanently removed.
+              </p>
+            </div>
+            <div className="bg-[#252525] px-8 py-6 flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => setDeleteConfirm({ isOpen: false, projectId: null, projectName: '' })}
+                className="flex-1 px-6 py-2.5 rounded-xl text-sm font-bold text-gray-300 hover:bg-[#333] transition-colors border border-[#444]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteProject}
+                className="flex-1 px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition-colors shadow-lg shadow-red-900/20"
+              >
+                Delete Project
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

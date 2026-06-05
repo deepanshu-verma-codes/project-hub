@@ -27,6 +27,12 @@ export const Login = ({ onLoginSuccess }) => {
 
       // Securely store token (consider HttpOnly cookies for production, localStorage for brevity here)
       localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify({
+        id: data._id,
+        name: data.name,
+        email: data.email,
+        role: data.role
+      }));
       onLoginSuccess();
       
     } catch (err) {

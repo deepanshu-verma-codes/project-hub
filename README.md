@@ -80,3 +80,42 @@ cd frontend
 npm install
 npm run dev # Runs next dev or vite
 ```
+
+## 🚀 Deployment Strategy
+
+The application is architected for automated deployment via **GitHub Actions**.
+
+### 1. Infrastructure Setup
+- **Server:** Ubuntu 22.04 VM (DigitalOcean/Hetzner).
+- **Reverse Proxy:** Nginx configured to handle SSL termination and WebSocket protocol upgrades.
+- **Process Manager:** PM2 for keeping the Node.js backend alive.
+- **SSL:** Let's Encrypt certificates managed via `certbot`.
+
+### 2. Deployment Steps
+1. Push changes to the `main` branch.
+2. GitHub Actions triggers the `Production Deployment Pipeline`.
+3. Pipeline executes linting, unit testing, and frontend build.
+4. On success, the pipeline connects to the VM via SSH.
+5. Code is pulled, dependencies are installed, and PM2 restarts the backend cluster.
+6. Nginx configuration is reloaded to ensure routing remains current.
+
+## 🌿 Git Branching Strategy
+
+We followed a **Feature Branching / GitHub Flow** model:
+- `main`: Production-ready code only.
+- `feature/*`: Granular branches for specific tasks (e.g., `feature/notifications`, `feature/routing`).
+- Every Pull Request requires a successful build from the CI pipeline before merging.
+
+## 🔗 Live Application URLs
+
+- **Frontend:** [https://projecthub.yourdomain.com](https://projecthub.yourdomain.com)
+- **Backend API:** [https://api.projecthub.yourdomain.com](https://api.projecthub.yourdomain.com)
+
+## 🤖 AI Usage Declaration
+
+This project leveraged AI assistants (Gemini CLI) for:
+- **Boilerplate Generation:** Initializing Express routes and Mongoose models.
+- **Refactoring:** Converting circular icons to rounded-rectangular SVG containers.
+- **Documentation:** Drafting the formal FRD and System Design based on the implementation logic.
+- **Bug Fixing:** Debugging Next.js dynamic routing syntax errors.
+

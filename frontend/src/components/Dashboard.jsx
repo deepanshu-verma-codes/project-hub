@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useBoardStore } from '../store/useBoardStore';
+import { HiOutlineFolder, HiOutlineCheckCircle, HiOutlineAcademicCap, HiOutlineTrendingUp, HiOutlineChartPie, HiOutlineClock } from 'react-icons/hi';
 
 const Dashboard = () => {
   const { dashboardStats, fetchDashboardStats, isLoading } = useBoardStore();
@@ -39,25 +40,25 @@ const Dashboard = () => {
           <StatCard 
             title="Total Projects" 
             value={stats.totalProjects} 
-            icon="📁" 
+            icon={<HiOutlineFolder className="h-6 w-6" />} 
             color="blue"
           />
           <StatCard 
             title="Total Tasks" 
             value={stats.totalTasks} 
-            icon="✅" 
+            icon={<HiOutlineCheckCircle className="h-6 w-6" />} 
             color="green"
           />
           <StatCard 
             title="Tasks Done" 
             value={stats.taskStatusDistribution.Done} 
-            icon="🏆" 
+            icon={<HiOutlineAcademicCap className="h-6 w-6" />} 
             color="orange"
           />
           <StatCard 
             title="Completion Rate" 
             value={stats.totalTasks ? `${Math.round((stats.taskStatusDistribution.Done / stats.totalTasks) * 100)}%` : '0%'} 
-            icon="📈" 
+            icon={<HiOutlineTrendingUp className="h-6 w-6" />} 
             color="purple"
           />
         </div>
@@ -66,7 +67,10 @@ const Dashboard = () => {
           {/* Task Distribution */}
           <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
             <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center">
-              <span className="mr-2">📊</span> Task Distribution
+              <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center mr-3">
+                <HiOutlineChartPie className="h-4 w-4" />
+              </div>
+              Task Distribution
             </h3>
             <div className="space-y-6">
               <ProgressBar label="Todo" value={stats.taskStatusDistribution.Todo} max={stats.totalTasks} color="bg-gray-400" />
@@ -79,7 +83,10 @@ const Dashboard = () => {
           {/* Recent Projects */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
             <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center">
-              <span className="mr-2">🕒</span> Recent Projects
+              <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center mr-3">
+                <HiOutlineClock className="h-4 w-4" />
+              </div>
+              Recent Projects
             </h3>
             <div className="space-y-4">
               {stats.recentProjects.length > 0 ? (

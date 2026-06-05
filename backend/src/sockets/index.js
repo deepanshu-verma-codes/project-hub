@@ -23,6 +23,12 @@ const setupSockets = (io) => {
   io.on('connection', (socket) => {
     console.log(`User connected: ${socket.user.id} (Socket ID: ${socket.id})`);
 
+    // Join the global workspace room
+    socket.join('workspace');
+
+    // Join a personal room for private notifications
+    socket.join(`user:${socket.user.id}`);
+
     // Explicit room connection strategy
     socket.on('room:join', (projectId) => {
       socket.join(projectId);
