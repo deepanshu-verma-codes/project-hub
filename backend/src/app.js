@@ -24,7 +24,8 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: (origin, callback) => {
-      callback(null, true); // Reflect the origin dynamically
+      if (!origin) return callback(null, true);
+      return callback(null, origin);
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true
@@ -52,7 +53,8 @@ setupSockets(io);
 // Express Middleware
 app.use(cors({
   origin: (origin, callback) => {
-    callback(null, true); // Reflect the origin dynamically for Vercel preview URLs
+    if (!origin) return callback(null, true);
+    return callback(null, origin);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
