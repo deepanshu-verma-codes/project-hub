@@ -15,8 +15,60 @@ export const useBoardStore = create((set, get) => ({
   activityLog: [],
   searchResults: { projects: [], tasks: [] },
   dashboardStats: null,
+  users: [],
 
   setProjects: (projects) => set({ projects }),
+
+  fetchUsers: async () => {
+    try {
+      const response = await fetch(`${API_URL}/users`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await response.json();
+      set({ users: data });
+    } catch (error) {
+      console.error('Fetch users failed', error);
+    }
+  },
+
+  createUser: async (userData) => {
+    try {
+      const response = await fetch(`${API_URL}/users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(userData)
+      });
+      if (response.ok) {
+        const newUser = await response.json();
+        set((state) => ({ users: [...state.users, newUser] }));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Create user failed', error);
+      return false;
+    }
+  },
+
+  deleteUser: async (userId) => {
+    try {
+      const response = await fetch(`${API_URL}/users/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (response.ok) {
+        set((state) => ({ users: state.users.filter((u) => u._id !== userId) }));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Delete user failed', error);
+      return false;
+    }
+  },
 
   fetchNotifications: async () => {
     try {
@@ -296,6 +348,7 @@ export const useBoardStore = create((set, get) => ({
   },
 
   deleteProject: async (projectId) => {
+    set({ isLoading: true });
     try {
       const response = await fetch(`${API_URL}/projects/${projectId}`, {
         method: 'DELETE',
@@ -323,9 +376,11 @@ export const useBoardStore = create((set, get) => ({
         await get().fetchDashboardStats();
       }
       
+      set({ isLoading: false });
       return true;
     } catch (error) {
       console.error('Delete project failed', error);
+      set({ isLoading: false });
       return false;
     }
   },

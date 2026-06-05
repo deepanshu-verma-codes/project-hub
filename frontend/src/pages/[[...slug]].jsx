@@ -4,6 +4,7 @@ import TaskBoard from '../components/TaskBoard';
 import Login from '../components/Login';
 import Sidebar from '../components/Sidebar';
 import Dashboard from '../components/Dashboard';
+import AdminPanel from '../components/AdminPanel';
 import ToastContainer from '../components/ToastContainer';
 import { useBoardStore } from '../store/useBoardStore';
 import { 
@@ -30,6 +31,16 @@ export default function Home() {
   const [view, setView] = useState('board');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [logoutConfirm, setLogoutConfirm] = useState(false);
+  
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setIsLoggedIn(false);
+    setLogoutConfirm(false);
+    router.push('/');
+  };
+
   const { 
     projects, 
     activeProject, 
@@ -69,6 +80,9 @@ export default function Home() {
     } else if (slug[0] === 'notifications') {
       setView('notifications');
       setActiveProject(null);
+    } else if (slug[0] === 'admin') {
+      setView('admin');
+      setActiveProject(null);
     } else if (slug[0] === 'search') {
       setView('search');
       setActiveProject(null);
@@ -91,6 +105,7 @@ export default function Home() {
     
     if (newView === 'dashboard') router.push('/dashboard', undefined, { shallow: true });
     else if (newView === 'notifications') router.push('/notifications', undefined, { shallow: true });
+    else if (newView === 'admin') router.push('/admin', undefined, { shallow: true });
     else if (newView === 'search') router.push('/search', undefined, { shallow: true });
     else if (newView === 'board') {
       if (activeProject) router.push(`/project/${activeProject._id}`, undefined, { shallow: true });
@@ -160,6 +175,7 @@ export default function Home() {
                 {activeProject?.name || (
                   view === 'search' ? 'Search Results' : 
                   view === 'dashboard' ? 'Dashboard' : 
+                  view === 'admin' ? 'Admin Panel' :
                   view === 'notifications' ? 'Notifications' : 
                   'Home'
                 )}
@@ -188,14 +204,7 @@ export default function Home() {
             </form>
             <div className="h-6 w-[1px] bg-gray-100 mx-2"></div>
             <button 
-              onClick={() => {
-                if (window.confirm('Are you sure you want to logout?')) {
-                  localStorage.removeItem('token');
-                  localStorage.removeItem('user');
-                  setIsLoggedIn(false);
-                  router.push('/');
-                }
-              }}
+              onClick={() => setLogoutConfirm(true)}
               className="text-[10px] font-extrabold text-gray-400 hover:text-red-600 uppercase tracking-widest transition-colors flex items-center"
             >
               <HiOutlineLogout className="h-4 w-4 mr-1.5" />
@@ -207,6 +216,8 @@ export default function Home() {
         <main className="flex-1 overflow-hidden relative">
           {view === 'dashboard' ? (
             <Dashboard />
+          ) : view === 'admin' ? (
+            <AdminPanel />
           ) : view === 'notifications' ? (
             <div className="flex-1 h-full overflow-y-auto bg-white p-8 animate-in fade-in duration-500">
               <div className="max-w-3xl mx-auto">
@@ -242,7 +253,7 @@ export default function Home() {
                                 <HiOutlineInformationCircle className="w-5 h-5 text-white stroke-[3]" />
                               )}
                             </div>
-                            <div className="flex flex-col bg-white border border-gray-100 rounded-2xl p-5 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.07)] hover:shadow-[0_8px_30px_-5px_rgba(0,0,0,0.1)] transition-all duration-300 group-hover:border-gray-200">
+                            <div className="flex flex-col bg-white border border-gray-100 rounded-2xl p-5 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.07)] hover:shadow-[0_8px_30px_-5_rgba(0,0,0,0.1)] transition-all duration-300 group-hover:border-gray-200">
                               <div className="flex items-center justify-between mb-2">
                                 <span className={`text-[10px] font-extrabold uppercase tracking-widest ${
                                   log.type === 'success' ? 'text-emerald-600' :
@@ -284,7 +295,7 @@ export default function Home() {
                     <p className="text-sm text-gray-500 font-medium">Found {searchResults.projects.length} projects and {searchResults.tasks.length} tasks for "{searchQuery}"</p>
                   </div>
                   <button 
-                    onClick={() => {
+                    onClick={async () => {
                       handleViewChange('board');
                       setSearchQuery('');
                     }}
@@ -312,9 +323,10 @@ export default function Home() {
                           {searchResults.projects.map(p => (
                             <div 
                               key={p._id} 
-                              onClick={() => {
-                                setActiveProject(p);
-                                handleViewChange('board');
+                              onClick={async () => {
+                                await setActiveProject(p);
+                                setView('board');
+                                router.push('/project/' + p._id, undefined, { shallow: true });
                                 setSearchQuery('');
                               }}
                               className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 cursor-pointer transition-all group"
@@ -344,8 +356,13 @@ export default function Home() {
                               key={t._id} 
                               onClick={async () => {
                                 const parent = projects.find(p => p._id === t.projectId);
-                                if (parent) await setActiveProject(parent);
-                                handleViewChange('board');
+                                if (parent) {
+                                  await setActiveProject(parent);
+                                  setView('board');
+                                  router.push('/project/' + parent._id, undefined, { shallow: true });
+                                } else {
+                                  handleViewChange('board');
+                                }
                                 setSearchQuery('');
                               }}
                               className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 cursor-pointer transition-all flex items-center justify-between group"
@@ -428,6 +445,37 @@ export default function Home() {
           )}
         </main>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {logoutConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-[#1e1e1e] w-full max-w-sm rounded-2xl shadow-2xl border border-[#333] overflow-hidden transform animate-in zoom-in-95 duration-200">
+            <div className="p-8">
+              <div className="w-12 h-12 bg-orange-500/10 rounded-full flex items-center justify-center mb-6 mx-auto">
+                <HiOutlineLogout className="text-2xl text-orange-500" />
+              </div>
+              <h3 className="text-xl font-bold text-white text-center mb-2">Logout?</h3>
+              <p className="text-gray-400 text-center text-sm leading-relaxed">
+                Are you sure you want to sign out of your account?
+              </p>
+            </div>
+            <div className="bg-[#252525] px-8 py-6 flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => setLogoutConfirm(false)}
+                className="flex-1 px-6 py-2.5 rounded-xl text-sm font-bold text-gray-300 hover:bg-[#333] transition-colors border border-[#444]"
+              >
+                Stay
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex-1 px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-orange-600 hover:bg-orange-700 transition-colors shadow-lg shadow-orange-900/20"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
