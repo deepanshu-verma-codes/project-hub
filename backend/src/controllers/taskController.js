@@ -122,7 +122,7 @@ const updateTaskStatus = async (req, res, next) => {
 
 const reorderTasks = async (req, res, next) => {
   try {
-    const { updates, projectId } = req.body; // updates is an array of { id, position, status }
+    const { updates, projectId } = req.body; // updates is an array of { id, position, status, statusChanged }
     
     // Perform bulk write for efficiency
     const bulkOps = updates.map(update => ({
@@ -137,6 +137,22 @@ const reorderTasks = async (req, res, next) => {
     // We can emit a single 'board:reordered' event if needed, or rely on client's optimistic update.
     if (req.io) {
       req.io.to(projectId).emit('board:reordered', updates);
+      
+      // If any task changed status, emit a notification
+      const changedTasks = updates.filter(u => u.statusChanged);
+      for (const update of changedTasks) {
+        const task = await Task.findById(update.id);
+        if (task) {
+           createNotification({
+             userId: req.user._id,
+             message: `Task "${task.title}" moved to ${update.status} by ${req.user.name}`,
+             type: 'info',
+             projectId: task.projectId
+           });
+           // Also emit task:updated so peers get the notification toast
+           req.io.to(projectId).emit('task:updated', task);
+        }
+      }
     }
 
     res.status(200).json({ success: true });

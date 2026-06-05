@@ -1,5 +1,6 @@
-import React, { useState } from "react";
-import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import React, { useState, useEffect } from "react";
+import { DragDropContext, Draggable } from "@hello-pangea/dnd";
+import { StrictModeDroppable } from "./StrictModeDroppable";
 import { useBoardStore } from "../store/useBoardStore";
 import { useSocket } from "../hooks/useSocket";
 import { 
@@ -53,6 +54,11 @@ export const TaskBoard = ({ projectId }) => {
   const [sliderIndex, setSliderIndex] = useState(null);
   const [newImages, setNewImages] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const selectedTask = tasks.find((t) => t._id === selectedTaskId);
 
@@ -85,10 +91,17 @@ export const TaskBoard = ({ projectId }) => {
 
     // Calculate new positions
     const updates = [];
+    const statusChanged = sourceStatus !== destStatus;
+    
     newDestTasks.forEach((task, index) => {
       const newPos = index * 1024; // Base step
       if (task.position !== newPos || task.status !== destStatus) {
-        updates.push({ id: task._id, position: newPos, status: destStatus });
+        updates.push({ 
+          id: task._id, 
+          position: newPos, 
+          status: destStatus,
+          statusChanged: task._id === draggableId ? statusChanged : false
+        });
       }
     });
 
@@ -96,7 +109,12 @@ export const TaskBoard = ({ projectId }) => {
        newSourceTasks.forEach((task, index) => {
          const newPos = index * 1024;
          if (task.position !== newPos) {
-           updates.push({ id: task._id, position: newPos, status: sourceStatus });
+           updates.push({ 
+             id: task._id, 
+             position: newPos, 
+             status: sourceStatus,
+             statusChanged: false
+           });
          }
        });
     }
@@ -380,10 +398,11 @@ export const TaskBoard = ({ projectId }) => {
 
       {/* View Content */}
       {view === "Board" ? (
-        <DragDropContext onDragEnd={onDragEnd}>
-          <div className="flex-1 overflow-x-auto p-8 flex space-x-8 items-start bg-[#fcfcfc]">
-            {COLUMNS.map((column) => (
-              <Droppable key={column.id} droppableId={column.id}>
+        isMounted ? (
+          <DragDropContext onDragEnd={onDragEnd}>
+            <div className="flex-1 overflow-x-auto p-8 flex space-x-8 items-start bg-[#fcfcfc]">
+              {COLUMNS.map((column) => (
+              <StrictModeDroppable key={column.id} droppableId={column.id}>
                 {(provided, snapshot) => (
                   <div
                     ref={provided.innerRef}
@@ -724,10 +743,11 @@ export const TaskBoard = ({ projectId }) => {
               )}
             </div>
             )}
-          </Droppable>
+          </StrictModeDroppable>
           ))}
         </div>
       </DragDropContext>
+      ) : null
       ) : view === "List" ? (
         <div className="flex-1 overflow-y-auto p-8 bg-[#fcfcfc]">
           <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

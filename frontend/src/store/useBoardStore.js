@@ -411,20 +411,19 @@ export const useBoardStore = create((set, get) => ({
   },
 
   reorderTasks: async (updates, projectId) => {
-    // updates is an array of { id, position, status }
+    // updates is an array of { id, position, status, statusChanged }
     const previousTasks = get().tasks;
 
-    // 1. Optimistic Update
-    const tasksMap = new Map(previousTasks.map(t => [t._id, t]));
-    updates.forEach(u => {
-      if (tasksMap.has(u.id)) {
-        const task = tasksMap.get(u.id);
-        task.position = u.position;
-        task.status = u.status;
+    // 1. Optimistic Update (pure, no mutation)
+    const newTasks = previousTasks.map(task => {
+      const update = updates.find(u => u.id === task._id);
+      if (update) {
+        return { ...task, position: update.position, status: update.status };
       }
+      return task;
     });
 
-    set({ tasks: Array.from(tasksMap.values()) });
+    set({ tasks: newTasks });
 
     try {
       // 2. Persist
