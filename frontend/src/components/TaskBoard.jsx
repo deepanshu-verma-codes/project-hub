@@ -77,8 +77,8 @@ export const TaskBoard = ({ projectId }) => {
     const sourceStatus = source.droppableId;
     const destStatus = destination.droppableId;
 
-    const sourceTasks = tasks.filter(t => t.status === sourceStatus).sort((a, b) => (a.position || 0) - (b.position || 0));
-    const destTasks = sourceStatus === destStatus ? sourceTasks : tasks.filter(t => t.status === destStatus).sort((a, b) => (a.position || 0) - (b.position || 0));
+    const sourceTasks = tasks.filter(t => t.status === sourceStatus).sort((a, b) => (a.position || 0) === (b.position || 0) ? a._id.localeCompare(b._id) : (a.position || 0) - (b.position || 0));
+    const destTasks = sourceStatus === destStatus ? sourceTasks : tasks.filter(t => t.status === destStatus).sort((a, b) => (a.position || 0) === (b.position || 0) ? a._id.localeCompare(b._id) : (a.position || 0) - (b.position || 0));
 
     const draggedTask = tasks.find(t => t._id === draggableId);
     
@@ -431,7 +431,7 @@ export const TaskBoard = ({ projectId }) => {
                     <div className="space-y-4 min-h-[50px]">
                       {tasks
                         .filter((t) => t.status === column.id)
-                        .sort((a, b) => (a.position || 0) - (b.position || 0))
+                        .sort((a, b) => (a.position || 0) === (b.position || 0) ? a._id.localeCompare(b._id) : (a.position || 0) - (b.position || 0))
                         .map((task, index) => (
                           <Draggable key={task._id} draggableId={task._id} index={index}>
                             {(provided, snapshot) => (
@@ -440,7 +440,7 @@ export const TaskBoard = ({ projectId }) => {
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
                                 onClick={() => setSelectedTaskId(task._id)}
-                                className={`asana-card group !p-0 overflow-hidden flex flex-col cursor-pointer hover:ring-2 hover:ring-blue-100 transition-all ${
+                                className={`asana-card group !p-0 overflow-hidden flex flex-col cursor-pointer hover:ring-2 hover:ring-blue-100 transition-shadow duration-200 ${
                                   snapshot.isDragging ? 'shadow-2xl ring-2 ring-blue-400 rotate-2 opacity-90' : 'shadow-sm'
                                 }`}
                                 style={provided.draggableProps.style}
