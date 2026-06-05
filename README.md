@@ -108,8 +108,8 @@ We followed a **Feature Branching / GitHub Flow** model:
 
 ## 🔗 Live Application URLs
 
-- **Frontend:** [https://projecthub.yourdomain.com](https://projecthub.yourdomain.com)
-- **Backend API:** [https://api.projecthub.yourdomain.com](https://api.projecthub.yourdomain.com)
+- **Frontend:** [https://project-hub-2qorhmb8u-deepanshu-vermas-projects-fcfba96b.vercel.app/](https://project-hub-2qorhmb8u-deepanshu-vermas-projects-fcfba96b.vercel.app/)
+- **Backend API:** [https://project-hub-backend-1ktv.onrender.com](https://project-hub-backend-1ktv.onrender.com)
 
 ## 🤖 AI Usage Declaration
 
