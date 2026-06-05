@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { useBoardStore } from "../store/useBoardStore";
 import { useSocket } from "../hooks/useSocket";
 import { 
@@ -28,6 +29,7 @@ export const TaskBoard = ({ projectId }) => {
   const {
     tasks,
     updateLocalTaskStatus,
+    reorderTasks,
     createTask,
     updateTask,
     deleteTask,
@@ -54,17 +56,55 @@ export const TaskBoard = ({ projectId }) => {
 
   const selectedTask = tasks.find((t) => t._id === selectedTaskId);
 
-  const handleDragStart = (e, taskId) => {
-    e.dataTransfer.setData("taskId", taskId);
-  };
+  const onDragEnd = (result) => {
+    const { destination, source, draggableId } = result;
 
-  const handleDrop = (e, targetStatus) => {
-    e.preventDefault();
-    const taskId = e.dataTransfer.getData("taskId");
-    updateLocalTaskStatus(taskId, targetStatus, projectId);
-  };
+    if (!destination) return;
 
-  const handleDragOver = (e) => e.preventDefault();
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return;
+    }
+
+    const sourceStatus = source.droppableId;
+    const destStatus = destination.droppableId;
+
+    const sourceTasks = tasks.filter(t => t.status === sourceStatus).sort((a, b) => (a.position || 0) - (b.position || 0));
+    const destTasks = sourceStatus === destStatus ? sourceTasks : tasks.filter(t => t.status === destStatus).sort((a, b) => (a.position || 0) - (b.position || 0));
+
+    const draggedTask = tasks.find(t => t._id === draggableId);
+    
+    // Create new arrays for optimistic UI updates
+    const newSourceTasks = Array.from(sourceTasks);
+    newSourceTasks.splice(source.index, 1);
+    
+    const newDestTasks = sourceStatus === destStatus ? newSourceTasks : Array.from(destTasks);
+    newDestTasks.splice(destination.index, 0, draggedTask);
+
+    // Calculate new positions
+    const updates = [];
+    newDestTasks.forEach((task, index) => {
+      const newPos = index * 1024; // Base step
+      if (task.position !== newPos || task.status !== destStatus) {
+        updates.push({ id: task._id, position: newPos, status: destStatus });
+      }
+    });
+
+    if (sourceStatus !== destStatus) {
+       newSourceTasks.forEach((task, index) => {
+         const newPos = index * 1024;
+         if (task.position !== newPos) {
+           updates.push({ id: task._id, position: newPos, status: sourceStatus });
+         }
+       });
+    }
+
+    if (updates.length > 0) {
+      reorderTasks(updates, projectId);
+    }
+  };
 
   const handleAddTask = async (column) => {
     if (!newTask.title.trim() || isSaving) return;
@@ -340,44 +380,52 @@ export const TaskBoard = ({ projectId }) => {
 
       {/* View Content */}
       {view === "Board" ? (
-        <div className="flex-1 overflow-x-auto p-8 flex space-x-8 items-start bg-[#fcfcfc]">
-          {COLUMNS.map((column) => (
-            <div
-              key={column.id}
-              className="asana-column min-h-[500px]"
-              onDrop={(e) => handleDrop(e, column.id)}
-              onDragOver={handleDragOver}
-            >
-              <div className="flex items-center justify-between mb-4 group px-1">
-                <div className="flex items-center">
-                  <h2 className="font-bold text-sm text-gray-700 mr-2">
-                    {column.id}
-                  </h2>
-                  <span className="text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full font-bold">
-                    {tasks.filter((t) => t.status === column.id).length}
-                  </span>
-                </div>
-                <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => setAddingToColumn(column.id)}
-                    className="p-1 hover:bg-gray-100 rounded transition-colors text-gray-400 hover:text-gray-600"
+        <DragDropContext onDragEnd={onDragEnd}>
+          <div className="flex-1 overflow-x-auto p-8 flex space-x-8 items-start bg-[#fcfcfc]">
+            {COLUMNS.map((column) => (
+              <Droppable key={column.id} droppableId={column.id}>
+                {(provided, snapshot) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className={`asana-column min-h-[500px] transition-colors ${snapshot.isDraggingOver ? 'bg-gray-50/50' : ''}`}
                   >
-                    <HiOutlinePlus className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
+                    <div className="flex items-center justify-between mb-4 group px-1">
+                      <div className="flex items-center">
+                        <h2 className="font-bold text-sm text-gray-700 mr-2">
+                          {column.id}
+                        </h2>
+                        <span className="text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full font-bold">
+                          {tasks.filter((t) => t.status === column.id).length}
+                        </span>
+                      </div>
+                      <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => setAddingToColumn(column.id)}
+                          className="p-1 hover:bg-gray-100 rounded transition-colors text-gray-400 hover:text-gray-600"
+                        >
+                          <HiOutlinePlus className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
 
-              <div className="space-y-4 min-h-[50px]">
-                {tasks
-                  .filter((t) => t.status === column.id)
-                  .map((task) => (
-                    <div
-                      key={task._id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, task._id)}
-                      onClick={() => setSelectedTaskId(task._id)}
-                      className="asana-card group animate-in slide-in-from-top-2 duration-300 !p-0 overflow-hidden flex flex-col cursor-pointer hover:ring-2 hover:ring-blue-100 transition-all"
-                    >
+                    <div className="space-y-4 min-h-[50px]">
+                      {tasks
+                        .filter((t) => t.status === column.id)
+                        .sort((a, b) => (a.position || 0) - (b.position || 0))
+                        .map((task, index) => (
+                          <Draggable key={task._id} draggableId={task._id} index={index}>
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                onClick={() => setSelectedTaskId(task._id)}
+                                className={`asana-card group !p-0 overflow-hidden flex flex-col cursor-pointer hover:ring-2 hover:ring-blue-100 transition-all ${
+                                  snapshot.isDragging ? 'shadow-2xl ring-2 ring-blue-400 rotate-2 opacity-90' : 'shadow-sm'
+                                }`}
+                                style={provided.draggableProps.style}
+                              >
                       <div className="p-4 flex flex-col flex-1">
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex-1">
@@ -500,8 +548,11 @@ export const TaskBoard = ({ projectId }) => {
                         </div>
                       </div>
                     </div>
-                  ))}
-              </div>
+                            )}
+                          </Draggable>
+                        ))}
+                      {provided.placeholder}
+                    </div>
 
               {addingToColumn === column.id ? (
                 <div className="mt-4 asana-card !p-4 !border-blue-400 ring-4 ring-blue-50 animate-in zoom-in-95 duration-200 space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar">
@@ -672,8 +723,11 @@ export const TaskBoard = ({ projectId }) => {
                 </button>
               )}
             </div>
+            )}
+          </Droppable>
           ))}
         </div>
+      </DragDropContext>
       ) : view === "List" ? (
         <div className="flex-1 overflow-y-auto p-8 bg-[#fcfcfc]">
           <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

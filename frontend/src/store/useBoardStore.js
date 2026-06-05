@@ -410,6 +410,39 @@ export const useBoardStore = create((set, get) => ({
     }
   },
 
+  reorderTasks: async (updates, projectId) => {
+    // updates is an array of { id, position, status }
+    const previousTasks = get().tasks;
+
+    // 1. Optimistic Update
+    const tasksMap = new Map(previousTasks.map(t => [t._id, t]));
+    updates.forEach(u => {
+      if (tasksMap.has(u.id)) {
+        const task = tasksMap.get(u.id);
+        task.position = u.position;
+        task.status = u.status;
+      }
+    });
+
+    set({ tasks: Array.from(tasksMap.values()) });
+
+    try {
+      // 2. Persist
+      const response = await fetch(`${API_URL}/tasks/reorder`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ updates, projectId })
+      });
+      if (!response.ok) throw new Error('Reorder failed');
+    } catch (error) {
+      // 3. Rollback
+      set({ tasks: previousTasks });
+    }
+  },
+
   onTaskUpdatedByPeer: (updatedTask) => {
     const { activeProject } = get();
     if (updatedTask.projectId === activeProject?._id) {

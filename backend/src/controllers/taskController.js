@@ -120,6 +120,31 @@ const updateTaskStatus = async (req, res, next) => {
   }
 };
 
+const reorderTasks = async (req, res, next) => {
+  try {
+    const { updates, projectId } = req.body; // updates is an array of { id, position, status }
+    
+    // Perform bulk write for efficiency
+    const bulkOps = updates.map(update => ({
+      updateOne: {
+        filter: { _id: update.id, projectId },
+        update: { position: update.position, status: update.status }
+      }
+    }));
+    
+    await Task.bulkWrite(bulkOps);
+
+    // We can emit a single 'board:reordered' event if needed, or rely on client's optimistic update.
+    if (req.io) {
+      req.io.to(projectId).emit('board:reordered', updates);
+    }
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const updateTask = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -205,6 +230,7 @@ module.exports = {
   createTask,
   deleteTask,
   updateTaskStatus,
+  reorderTasks,
   searchTasks,
   updateTask
 };

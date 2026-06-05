@@ -16,6 +16,7 @@ router.use(protect);
 router.get('/', getTasks);
 router.get('/search', searchTasks);
 router.post('/', upload.array('images', 4), createTask);
+router.put('/reorder', require('../controllers/taskController').reorderTasks);
 router.put('/:id', upload.array('images', 4), updateTask);
 router.put('/:id/status', updateTaskStatus);
 router.delete('/:id', deleteTask);
